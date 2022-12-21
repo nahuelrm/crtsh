@@ -39,6 +39,13 @@ help_panel() {
 	exit
 }
 
+ctrl_c() {
+	rm -fr $dir 2>/dev/null
+	echo -e "${red}[!] Exiting...${endColor}"
+}
+
+trap ctrl_c INT
+
 if [[ $# == 0 ]]; then help_panel; fi
 
 declare -g alive=false
@@ -58,7 +65,7 @@ done
 OPTIND=1
 
 declare -g dir=$(echo "/tmp/crtsh-$(date_dir)-$(time_dir)")
-rm -fr $dir 2>/dev/null; mkdir $dir 2>/dev/null #TODO: remove this directory if there is any error that stops the execution
+rm -fr $dir 2>/dev/null; mkdir $dir 2>/dev/null
 
 while getopts $optstring opt 2>/dev/null; do
 	case $opt in

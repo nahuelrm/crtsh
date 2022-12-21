@@ -30,10 +30,10 @@ time_dir() {
 }
 
 is_important() {
-	# TODO: should exclude the main domian to grep properly for interesting domains
 	importants=("admin" "corp" "internal" "mail" "priv" "staff" "dev" "private" "devops" "test" "assistant" "stage" "repo" "db" "git" "jenkins")
+
 	for i in "${importants[@]}"; do
-		if [[ -n $(echo $1 | grep $i) ]]; then
+		if grep -q $i <<< $(echo $1 | rev | awk -F '.' '{$1=""; $2=""; print $0}' | rev); then
 			return 0
 		fi
 	done
