@@ -1,0 +1,231 @@
+#!/bin/bash
+
+#Colors
+green="\e[0;32m\033[1m"
+endColor="\033[0m\e[0m"
+red="\e[0;31m\033[1m"
+blue="\e[0;34m\033[1m"
+yellow="\e[0;33m\033[1m"
+purple="\e[0;35m\033[1m"
+cyan="\e[0;36m\033[1m"
+gray="\e[0;37m\033[1m"
+
+crtsh(){
+	curl -s "https://crt.sh/?q=%25.$1" | grep ">*.$(echo $1 | sed 's/%25.//g')" | sed 's/<[/]*[TB][DR]>/\n/g' | grep -vE "<|^[\*]*[\.]*$(echo $1 | sed 's/%25.//g')" | sort -u | awk 'NF'
+}
+
+validate_domain(){
+	if [[ $1 = *"https://"* ]] || [[ $1 = *"http://"* ]]; then 
+		echo -e "${red}[!] Error, domain can't contain http:// or https://.${endColor}"
+		exit 1
+	fi	
+}
+
+date_dir() {
+	echo $(date "+%d_%m_%Y")
+}
+
+time_dir() {
+	echo $(date "+%H:%M")
+}
+
+is_important() {
+	# TODO: should exclude the main domian to grep properly for interesting domains
+	importants=("admin" "corp" "internal" "mail" "priv" "staff" "dev" "private" "devops" "test" "assistant" "stage" "repo" "db" "git" "jenkins")
+	for i in "${importants[@]}"; do
+		if [[ -n $(echo $1 | grep $i) ]]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+scan_small_target() {
+	results=$(crtsh $1)
+
+	if [[ -z $results ]]; then 
+		return
+	fi
+	
+	echo $results | tr ' ' '\n' | grep -v "*" >> $dir/all.txt
+	sort -u -o $dir/all.txt $dir/all.txt 2>/dev/null
+
+	for subdomain in $results; do
+		if grep -q "*" <<< "$subdomain"; then continue; fi
+
+		if $important && is_important $subdomain; then
+			echo $subdomain >> $dir/importants.txt
+		fi
+
+		echo -e "${cyan}[*] ${gray}Scanning: ${yellow}$subdomain${gray} subdomains${endColor}"
+		scan_small_target $subdomain &
+		sleep 5
+	done
+}
+
+scan_big_target() {
+	echo -e "${cyan}[*] ${gray}Scanning: ${yellow}$1${gray} subdomains${endColor}"
+	results=$(crtsh $1)
+
+	if [[ -n $results ]]; then
+		echo "$results" | tr ' ' '\n' | grep -v "*" >> $dir/all.txt
+
+		for subdomain in $results; do
+			if ! grep -q "*" <<< "$subdomain" && $important && is_important $subdomain; then
+				echo $subdomain >> $dir/importants.txt
+			fi
+		done
+		sort -u -o $dir/importants.txt $dir/importants.txt 2>/dev/null
+		sort -u -o $dir/all.txt $dir/all.txt 2>/dev/null
+		if ! [ -s $dir/importants.txt ]; then rm $dir/importants.txt 2>/dev/null; fi
+		scan_big_target "$(echo $1 | sed 's/^/%25./')"
+	fi
+}
+
+check_alive_hosts() {
+	if $alive; then
+		echo -e "${cyan}[*] ${green}Checking for alive hosts...${endColor}"
+		cat $dir/all.txt | httprobe -c 50 >> $dir/alive.txt	
+		sort -u -o $dir/alive.txt $dir/alive.txt 2>/dev/null
+	fi
+}
+
+multiple_domain_scan() {
+	for domain in $(cat $2); do
+		validate_domain $domain
+	done
+
+	case $1 in
+		"small")
+			for domain in $(cat $2); do
+				mkdir $domain 2>/dev/null
+				
+				echo -e "${cyan}[*] ${gray}Scanning: ${yellow}$domain${gray} subdomains${endColor}"
+				scan_small_target $domain
+				check_alive_hosts
+
+				if ! [ -s $dir/alive.txt ]; then 
+					rm $dir/alive.txt 2>/dev/null
+				else
+					mv $dir/alive.txt $domain 2>/dev/null
+				fi
+
+				mv $dir/all.txt $domain 2>/dev/null
+				
+				if ! [ -s $dir/importants.txt ]; then 
+					rm $dir/importants.txt 2>/dev/null
+				else
+					mv $dir/importants.txt $domain 2>/dev/null
+				fi
+			done
+			;;
+
+		"big")
+			for domain in $(cat $2); do
+				mkdir $domain 2>/dev/null
+				
+				scan_big_target $domain
+				check_alive_hosts
+
+				if ! [ -s alive.txt ]; then
+					rm $dir/alive.txt 2>/dev/null
+				else
+					mv $dir/alive.txt $domain 2>/dev/null
+				fi
+
+				mv $dir/all.txt $domain 2>/dev/null
+				
+				if ! [ -s $dir/importants.txt ]; then 
+					rm $dir/importants.txt 2>/dev/null
+				else
+					mv $dir/importants.txt $domain 2>/dev/null
+				fi
+			done
+			;;
+	esac
+}
+
+multiple_domain_check() {
+	for domain in $(cat $1); do
+		validate_domain $domain
+	done
+
+	for domain in $(cat $1); do
+		check_target $domain
+	done
+}
+
+check_target() {
+	if [[ $(crtsh $1 | wc -l) -gt 50 ]]; then
+		echo -e "\n${cyan}[*] ${yellow}$1${gray} is a ${cyan}big${gray} target${endColor}"
+	else
+		echo -e "\n${cyan}[*] ${yellow}$1${gray} is a ${cyan}small${gray} target${endColor}"
+	fi
+}
+
+check_dependencies() {
+	if [[ -n $(which httprobe | grep "not found") ]]; then
+		echo -e "${red}[!]${gray} httprobe not found. Download from https://github.com/tomnomnom/httprobe${endColor}"
+	else
+		echo -e "${green}[*]${gray} httprobe installed!${endColor}"
+	fi
+}
+
+automatic_scan(){
+	if [[ -f $1 ]]; then
+		for domain in $(cat $1); do
+			validate_domain $domain
+		done
+
+		for domain in $(cat $1); do
+			mkdir $domain 2>/dev/null
+			if [[ -n $(check_target "$domain" | grep "big") ]]; then
+				scan_big_target $domain
+			else
+				echo -e "${cyan}[*] ${gray}Scanning: ${yellow}$domain${gray} subdomains${endColor}"
+				scan_small_target $domain
+			fi
+			check_alive_hosts
+
+			if ! [ -s $dir/alive.txt ]; then 
+				rm $dir/alive.txt 2>/dev/null
+			else
+				mv $dir/alive.txt $domain 2>/dev/null
+			fi
+
+			mv $dir/all.txt $domain 2>/dev/null
+
+			if ! [ -s $dir/importants.txt ]; then 
+				rm $dir/importants.txt 2>/dev/null
+			else
+				mv $dir/importants.txt $domain 2>/dev/null
+			fi
+		done
+	else
+		validate_domain $1
+
+		mkdir $1 2>/dev/null
+		
+		if [[ -n $(check_target "$1" | grep "big") ]]; then
+			scan_big_target $1
+		else
+			echo -e "${cyan}[*] ${gray}Scanning: ${yellow}$1${gray} subdomains${endColor}"
+			scan_small_target $1
+		fi
+		check_alive_hosts
+
+		if ! [ -s $dir/alive.txt ]; then
+			rm $dir/alive.txt 2>/dev/null
+		else
+			mv $dir/alive.txt $1 2>/dev/null
+		fi
+
+		mv $dir/all.txt $1 2>/dev/null
+
+		if ! [ -s $dir/importants.txt ]; then
+			rm $dir/importants.txt 2>/dev/null
+		else
+			mv $dir/importants.txt $1 2>/dev/null
+		fi
+	fi
+}
