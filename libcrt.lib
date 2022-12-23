@@ -55,7 +55,7 @@ scan_small_target() {
 		return
 	fi
 	
-	echo $results | tr ' ' '\n' | grep -v "*" >> $dir/all.txt
+	echo $results | tr ' ' '\n' | sed 's/*.//' >> $dir/all.txt
 	sort -u -o $dir/all.txt $dir/all.txt 2>/dev/null
 
 	for subdomain in $results; do
@@ -76,7 +76,7 @@ scan_big_target() {
 	results=$(crtsh $1)
 
 	if [[ -n $results ]]; then
-		echo "$results" | tr ' ' '\n' | grep -v "*" >> $dir/all.txt
+		echo "$results" | tr ' ' '\n' | sed 's/*.//' >> $dir/all.txt
 
 		for subdomain in $results; do
 			if ! grep -q "*" <<< "$subdomain" && $important && is_important $subdomain; then
