@@ -45,6 +45,7 @@ help_panel() {
 ctrl_c() {
 	rm -fr $dir 2>/dev/null
 	echo -e "${red}[!] Exiting...${endColor}"
+	tput cnorm; exit 1
 }
 
 trap ctrl_c INT
@@ -59,6 +60,8 @@ source /lib/libcrt.lib
 
 optstring="ilc:s:b:hda:o:"
 
+tput civis
+
 while getopts $optstring opt 2>/dev/null; do
 	case $opt in
 		"l") alive=true ;;
@@ -70,7 +73,7 @@ while getopts $optstring opt 2>/dev/null; do
 			else
 				validate_domain $OPTARG
 				check_target $OPTARG 
-				exit 0
+				tput cnorm; exit 0
 			fi
 			;;
 		"o")
@@ -78,6 +81,7 @@ while getopts $optstring opt 2>/dev/null; do
 				output_dir=$OPTARG
 			else
 				echo -e "${red}[!] Output directory not found.${endColor}"
+				tput cnorm; exit 1;
 			fi
 			;;
 	esac
@@ -104,15 +108,19 @@ while getopts $optstring opt 2>/dev/null; do
 				if ! [ -s $dir/alive.txt ]; then 
 					rm $dir/alive.txt 2>/dev/null
 				else
-					mv $dir/alive.txt $OPTARG 2>/dev/null
+					mv $dir/alive.txt $output_dir/$OPTARG 2>/dev/null
 				fi
 
-				mv $dir/all.txt $OPTARG 2>/dev/null
+				mv $dir/all.txt $output_dir/$OPTARG 2>/dev/null
 
 				if ! [ -s $dir/importants.txt ]; then 
 					rm $dir/importants.txt 2>/dev/null
 				else
-					mv $dir/importants.txt $OPTARG 2>/dev/null
+					if $alive; then
+						check_alive_hosts "importants.txt" "$output_dir/$OPTARG/importants.txt"
+					else
+						mv $dir/importants.txt $output_dir/$OPTARG 2>/dev/null
+					fi
 				fi
 			fi
 			;;
@@ -137,7 +145,11 @@ while getopts $optstring opt 2>/dev/null; do
 				if ! [ -s $dir/importants.txt ]; then
 					rm $dir/importants.txt 2>/dev/null
 				else
-					mv $dir/importants.txt $output_dir/$OPTARG 2>/dev/null
+					if $alive; then
+						check_alive_hosts "importants.txt" "$output_dir/$OPTARG/importants.txt"
+					else
+						mv $dir/importants.txt $output_dir/$OPTARG 2>/dev/null
+					fi
 				fi
 			fi
 			;;
@@ -157,4 +169,5 @@ shift "$(($OPTIND - 1))"
 
 if [[ -n $1 ]]; then help_panel; fi
 
-rm -fr $dir
+rm -fr $dir 2>/dev/null
+tput cnorm; exit 0

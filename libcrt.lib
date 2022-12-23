@@ -25,7 +25,7 @@ full_path() {
 validate_domain(){
 	if [[ $1 = *"https://"* ]] || [[ $1 = *"http://"* ]]; then 
 		echo -e "${red}[!] Error, domain can't contain http:// or https://.${endColor}"
-		exit 1
+		tput cnorm; exit 1
 	fi	
 }
 
@@ -91,9 +91,13 @@ scan_big_target() {
 }
 
 check_alive_hosts() {
+	if [[ $# -gt 0 ]]; then
+		cat $dir/$1 2>/dev/null | httprobe -c 50 >> $2
+		return
+	fi
 	if $alive; then
 		echo -e "${cyan}[*] ${green}Checking for alive hosts...${endColor}"
-		cat $dir/all.txt | httprobe -c 50 >> $dir/alive.txt	
+		cat $dir/all.txt 2>/dev/null | httprobe -c 50 >> $dir/alive.txt	
 		sort -u -o $dir/alive.txt $dir/alive.txt 2>/dev/null
 	fi
 }
@@ -123,7 +127,11 @@ multiple_domain_scan() {
 				if ! [ -s $dir/importants.txt ]; then 
 					rm $dir/importants.txt 2>/dev/null
 				else
-					mv $dir/importants.txt $output_dir/$domain 2>/dev/null
+					if $alive; then
+						check_alive_hosts "importants.txt" "$output_dir/$domain/importants.txt"
+					else
+						mv $dir/importants.txt $output_dir/$domain 2>/dev/null
+					fi
 				fi
 			done
 			;;
@@ -146,7 +154,11 @@ multiple_domain_scan() {
 				if ! [ -s $dir/importants.txt ]; then 
 					rm $dir/importants.txt 2>/dev/null
 				else
-					mv $dir/importants.txt $output_dir/$domain 2>/dev/null
+					if $alive; then
+						check_alive_hosts "importants.txt" "$output_dir/$domain/importants.txt"
+					else
+						mv $dir/importants.txt $output_dir/$domain 2>/dev/null
+					fi
 				fi
 			done
 			;;
@@ -161,7 +173,7 @@ multiple_domain_check() {
 	for domain in $(cat $1); do
 		check_target $domain
 	done
-	exit 0
+	tput cnorm; exit 0
 }
 
 check_target() {
@@ -178,7 +190,7 @@ check_dependencies() {
 	else
 		echo -e "${green}[*]${gray} httprobe installed!${endColor}"
 	fi
-	exit 0
+	tput cnorm; exit 0
 }
 
 automatic_scan(){
@@ -208,7 +220,11 @@ automatic_scan(){
 			if ! [ -s $dir/importants.txt ]; then 
 				rm $dir/importants.txt 2>/dev/null
 			else
-				mv $dir/importants.txt $output_dir/$domain 2>/dev/null
+				if $alive; then
+					check_alive_hosts "importants.txt" "$output_dir/$domain/importants.txt"
+				else
+					mv $dir/importants.txt $output_dir/$domain 2>/dev/null
+				fi
 			fi
 		done
 	else
@@ -235,7 +251,11 @@ automatic_scan(){
 		if ! [ -s $dir/importants.txt ]; then
 			rm $dir/importants.txt 2>/dev/null
 		else
-			mv $dir/importants.txt $output_dir/$1 2>/dev/null
+			if $alive; then
+				check_alive_hosts "importants.txt" "$output_dir/$1/importants.txt"
+			else
+				mv $dir/importants.txt $output_dir/$1 2>/dev/null
+			fi
 		fi
 	fi
 }

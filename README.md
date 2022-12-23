@@ -41,6 +41,7 @@ crtsh -l -i -a <domain/file>
 | `-a <domain>` | automatic target scan |
 | `-i` | grep important subdomains |
 | `-l` | check for alive hosts |
+| `-o <path>` | path to output |
 | `-c <domain>` | check a target size |
 | `-d` | check for dependencies |
 | `-h` | show help panel |
