@@ -14,6 +14,14 @@ crtsh(){
 	curl -s "https://crt.sh/?q=%25.$1" | grep ">*.$(echo $1 | sed 's/%25.//g')" | sed 's/<[/]*[TB][DR]>/\n/g' | grep -vE "<|^[\*]*[\.]*$(echo $1 | sed 's/%25.//g')" | sort -u | awk 'NF'
 }
 
+full_path() {
+	if [[ $1 == /* ]]; then
+		echo $1
+	else
+		echo "$(pwd)/$1"
+	fi
+}
+
 validate_domain(){
 	if [[ $1 = *"https://"* ]] || [[ $1 = *"http://"* ]]; then 
 		echo -e "${red}[!] Error, domain can't contain http:// or https://.${endColor}"
@@ -98,7 +106,7 @@ multiple_domain_scan() {
 	case $1 in
 		"small")
 			for domain in $(cat $2); do
-				mkdir $domain 2>/dev/null
+				mkdir $output_dir/$domain 2>/dev/null
 				
 				echo -e "${cyan}[*] ${gray}Scanning: ${yellow}$domain${gray} subdomains${endColor}"
 				scan_small_target $domain
@@ -107,22 +115,22 @@ multiple_domain_scan() {
 				if ! [ -s $dir/alive.txt ]; then 
 					rm $dir/alive.txt 2>/dev/null
 				else
-					mv $dir/alive.txt $domain 2>/dev/null
+					mv $dir/alive.txt $output_dir/$domain 2>/dev/null
 				fi
 
-				mv $dir/all.txt $domain 2>/dev/null
+				mv $dir/all.txt $output_dir/$domain 2>/dev/null
 				
 				if ! [ -s $dir/importants.txt ]; then 
 					rm $dir/importants.txt 2>/dev/null
 				else
-					mv $dir/importants.txt $domain 2>/dev/null
+					mv $dir/importants.txt $output_dir/$domain 2>/dev/null
 				fi
 			done
 			;;
 
 		"big")
 			for domain in $(cat $2); do
-				mkdir $domain 2>/dev/null
+				mkdir $output_dir/$domain 2>/dev/null
 				
 				scan_big_target $domain
 				check_alive_hosts
@@ -130,15 +138,15 @@ multiple_domain_scan() {
 				if ! [ -s alive.txt ]; then
 					rm $dir/alive.txt 2>/dev/null
 				else
-					mv $dir/alive.txt $domain 2>/dev/null
+					mv $dir/alive.txt $output_dir/$domain 2>/dev/null
 				fi
 
-				mv $dir/all.txt $domain 2>/dev/null
+				mv $dir/all.txt $output_dir/$domain 2>/dev/null
 				
 				if ! [ -s $dir/importants.txt ]; then 
 					rm $dir/importants.txt 2>/dev/null
 				else
-					mv $dir/importants.txt $domain 2>/dev/null
+					mv $dir/importants.txt $output_dir/$domain 2>/dev/null
 				fi
 			done
 			;;
@@ -153,6 +161,7 @@ multiple_domain_check() {
 	for domain in $(cat $1); do
 		check_target $domain
 	done
+	exit 0
 }
 
 check_target() {
@@ -169,6 +178,7 @@ check_dependencies() {
 	else
 		echo -e "${green}[*]${gray} httprobe installed!${endColor}"
 	fi
+	exit 0
 }
 
 automatic_scan(){
@@ -178,7 +188,7 @@ automatic_scan(){
 		done
 
 		for domain in $(cat $1); do
-			mkdir $domain 2>/dev/null
+			mkdir $output_dir/$domain 2>/dev/null
 			if [[ -n $(check_target "$domain" | grep "big") ]]; then
 				scan_big_target $domain
 			else
@@ -190,21 +200,21 @@ automatic_scan(){
 			if ! [ -s $dir/alive.txt ]; then 
 				rm $dir/alive.txt 2>/dev/null
 			else
-				mv $dir/alive.txt $domain 2>/dev/null
+				mv $dir/alive.txt $output_dir/$domain 2>/dev/null
 			fi
 
-			mv $dir/all.txt $domain 2>/dev/null
+			mv $dir/all.txt $output_dir/$domain 2>/dev/null
 
 			if ! [ -s $dir/importants.txt ]; then 
 				rm $dir/importants.txt 2>/dev/null
 			else
-				mv $dir/importants.txt $domain 2>/dev/null
+				mv $dir/importants.txt $output_dir/$domain 2>/dev/null
 			fi
 		done
 	else
 		validate_domain $1
 
-		mkdir $1 2>/dev/null
+		mkdir $output_dir/$1 2>/dev/null
 		
 		if [[ -n $(check_target "$1" | grep "big") ]]; then
 			scan_big_target $1
@@ -217,15 +227,15 @@ automatic_scan(){
 		if ! [ -s $dir/alive.txt ]; then
 			rm $dir/alive.txt 2>/dev/null
 		else
-			mv $dir/alive.txt $1 2>/dev/null
+			mv $dir/alive.txt $output_dir/$1 2>/dev/null
 		fi
 
-		mv $dir/all.txt $1 2>/dev/null
+		mv $dir/all.txt $output_dir/$1 2>/dev/null
 
 		if ! [ -s $dir/importants.txt ]; then
 			rm $dir/importants.txt 2>/dev/null
 		else
-			mv $dir/importants.txt $1 2>/dev/null
+			mv $dir/importants.txt $output_dir/$1 2>/dev/null
 		fi
 	fi
 }

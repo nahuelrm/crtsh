@@ -31,6 +31,9 @@ help_panel() {
 	echo -e "\n\t-i\t\tgrep important subdomains"
 	echo -e "\t\t\tgreps interesting subdomains by grepping them with specific words"
 	echo -e "\t\t\tthis subdomains will be additionally stored under 'importants.txt' file."
+	echo -e "\n\t-o <path>\tpath to output"
+	echo -e "\t\t\tmust put a directory that exists, where all the new directories with"
+	echo -e "\t\t\tthe results of the scan will be stored in."
 	echo -e "\n\t-c <domain>\tcheck target size"
 	echo -e "\t\t\tif it the target has more than 50 subdomains at the beginning of the"
 	echo -e "\t\t\tscan, it will be considered as a big target."
@@ -50,15 +53,33 @@ if [[ $# == 0 ]]; then help_panel; fi
 
 declare -g alive=false
 declare -g important=false
+declare -g output_dir="$(pwd)"
 
 source /lib/libcrt.lib
 
-optstring="ilc:s:b:hda:"
+optstring="ilc:s:b:hda:o:"
 
 while getopts $optstring opt 2>/dev/null; do
 	case $opt in
 		"l") alive=true ;;
 		"i") important=true ;;
+		"d") check_dependencies ;;
+		"c") 
+			if [[ -f $OPTARG ]]; then
+				multiple_domain_check $OPTARG
+			else
+				validate_domain $OPTARG
+				check_target $OPTARG 
+				exit 0
+			fi
+			;;
+		"o")
+			if [[ -d $OPTARG ]]; then
+				output_dir=$OPTARG
+			else
+				echo -e "${red}[!] Output directory not found.${endColor}"
+			fi
+			;;
 	esac
 done
 
@@ -100,7 +121,7 @@ while getopts $optstring opt 2>/dev/null; do
 				multiple_domain_scan "big" $OPTARG
 			else
 				validate_domain $OPTARG
-				mkdir $OPTARG 2>/dev/null
+				mkdir $output_dir/$OPTARG 2>/dev/null
 
 				scan_big_target $OPTARG
 				check_alive_hosts
@@ -108,29 +129,23 @@ while getopts $optstring opt 2>/dev/null; do
 				if ! [ -s $dir/alive.txt ]; then
 					rm $dir/alive.txt 2>/dev/null
 				else
-					mv $dir/alive.txt $OPTARG 2>/dev/null
+					mv $dir/alive.txt $output_dir/$OPTARG 2>/dev/null
 				fi
 				
-				mv $dir/all.txt $OPTARG 2>/dev/null
+				mv $dir/all.txt $output_dir/$OPTARG 2>/dev/null
 
 				if ! [ -s $dir/importants.txt ]; then
 					rm $dir/importants.txt 2>/dev/null
 				else
-					mv $dir/importants.txt $OPTARG 2>/dev/null
+					mv $dir/importants.txt $output_dir/$OPTARG 2>/dev/null
 				fi
 			fi
 			;;
-		"c") 
-			if [[ -f $OPTARG ]]; then
-				multiple_domain_check $OPTARG
-			else
-				validate_domain $OPTARG
-				check_target $OPTARG 
-			fi
-			;;
-		"d") check_dependencies ;;
+		"c") ;;
 		"l") ;;
 		"i") ;;		
+		"d") ;;
+		"o") ;;
 		"a") 
 			automatic_scan $OPTARG
 			;;
